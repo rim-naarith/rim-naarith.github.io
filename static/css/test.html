@@ -56,7 +56,6 @@
     let peer, connections = {};
     const chats = [];
     let isHost = false
-    let hostId = ''
     function onJoinBtn() {
       const name = nameInput.value;
       const roomId = idInput.value;
@@ -69,7 +68,6 @@
         conn.on('open', () => {
           console.log("Connected to Room: ", roomId)
           isHost = false
-          hostId = ''
           broadcast({
             type: 'info',
             data: {
@@ -93,7 +91,6 @@
       peer.on('open', id => {
         document.getElementById('room-id').textContent = 'Room Id: ' + id;
         isHost = true
-        hostId = id
         user[id] = {name: name}
       });
       peer.on('connection', conn => {
@@ -148,9 +145,9 @@
           msg: msgInput.value
         }
       });
-      if (isHost && hostId) {
+      if (isHost && peer.id) {
         chats.push({
-          name: user[hostId].name,
+          name: user[peer.id].name,
           message: msgInput.value
         })
         renderChat();
