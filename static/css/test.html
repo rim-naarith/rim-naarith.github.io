@@ -55,6 +55,8 @@
     let user = {};
     let peer, connections = {};
     const chats = [];
+    let isHost = false
+    let hostId = ''
     function onJoinBtn() {
       const name = nameInput.value;
       const roomId = idInput.value;
@@ -66,6 +68,8 @@
         connections[roomId] = conn;
         conn.on('open', () => {
           console.log("Connected to Room: ", roomId)
+          isHost = false
+          hostId = ''
           broadcast({
             type: 'info',
             data: {
@@ -86,7 +90,12 @@
       if (!name) return alert('Name is required');
 
       peer = new Peer();
-      peer.on('open', id => document.getElementById('room-id').textContent = 'Room Id: ' + id);
+      peer.on('open', id => {
+        document.getElementById('room-id').textContent = 'Room Id: ' + id;
+        isHost = true
+        hostId = id
+        user[id] = {name: name}
+      });
       peer.on('connection', conn => {
         console.log('new connection ', conn)
         connections[conn.peer] = conn;
@@ -96,6 +105,10 @@
             data: {
               name: name,
             }
+          })
+          conn.send({
+            type: 'existingUser',
+            data: user
           })
         })
         conn.on('data', data => {
@@ -135,6 +148,13 @@
           msg: msgInput.value
         }
       });
+      if (isHost && hostId) {
+        chats.push({
+          name: user[hostId].name,
+          message: msgInput.value
+        })
+        renderChat();
+      }
       msgInput.value = '';
     }
 
@@ -149,6 +169,9 @@
       switch (data.type) {
         case 'info':
           user[peer] = data.data;
+          break;
+        case 'existingUser':
+          user = {...user, ...data.data}
           break;
         case 'msg':
           chats.push({
