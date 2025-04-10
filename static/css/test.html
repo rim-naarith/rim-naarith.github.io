@@ -107,6 +107,10 @@
             type: 'existingUser',
             data: user
           })
+          conn.send({
+            type: 'msgs',
+            data: chats
+          })
         })
         conn.on('data', data => {
           console.log('new data from join: ', data)
@@ -175,6 +179,10 @@
             name: user[peer].name,
             message: data.data.msg
           });
+          renderChat();
+          break;
+        case 'msgs':
+          chats.push(...data.data);
           renderChat();
           break;
         case 'relay':
