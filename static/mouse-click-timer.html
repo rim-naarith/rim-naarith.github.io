@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Mouse Click Timer</title>
+  <style>
+    * {
+      user-select: none;
+    }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+    li {
+      padding: 5px;
+      border-bottom: 1px solid #ddd;
+      user-select: none;
+    }
+  </style>
+</head>
+<body>
+  <h2>Mouse Left Click Tracker</h2>
+  <p>Click anywhere on the page. Each click shows how many ms since the last click.</p>
+  <ul id="clickList"></ul>
+
+  <script>
+    const clickList = document.getElementById("clickList");
+    let lastClickTime = null;
+
+    document.addEventListener("click", (e) => {
+      if (e.button !== 0) return; // Only left click
+
+      const now = Date.now();
+      let diff = "First click";
+
+      if (lastClickTime !== null) {
+        diff = (now - lastClickTime) + " ms since last click";
+      }
+
+      const li = document.createElement("li");
+      li.textContent = `Click at ${new Date(now).toLocaleTimeString()} → ${diff}`;
+      clickList.appendChild(li);
+
+      lastClickTime = now;
+    });
+  </script>
+</body>
+</html>
