@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat (P2P WebRTC)</title>
+    <style>
+        canvas {
+            background: #ddd;
+            display: block;
+            margin: auto;
+        }
+        #chat-content {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          margin-top: 16px;
+          min-height: 300px;
+        }
+        #chat-content > div {
+          background-color: rgb(194, 230, 233);
+          padding: 4px 12px;
+          border-radius: 8px;
+        }
+    </style>
+</head>
+
+<body>
+  <div>
+    <div class="">
+      <input type="text" id="name" placeholder="Please enter your name">
+      <input type="text" id="id" placeholder="Please enter the room id">
+      <button id="joinBtn">Join</button>
+      <button id="hostBtn">Host</button>
+      <p id="room-id"></p>
+    </div>
+    <div id="chat-content">
+    </div>
+    <div>
+      <input type="text" placeholder="Writh a message" id="message">
+      <button id="send">Send</button>
+    </div>
+  </div>
+  <script src="https://unpkg.com/peerjs@1.3.2/dist/peerjs.min.js"></script>
+  <script>
+    const joinBtn = document.getElementById('joinBtn');
+    const hostBtn = document.getElementById('hostBtn');
+    const nameInput = document.getElementById('name');
+    const idInput = document.getElementById('id');
+    const msgInput = document.getElementById('message');
+    const sendBtn = document.getElementById('send');
+    const chatWrapper = document.getElementById('chat-content');
+
+    let user = {};
+    let peer, connections = {};
+    const chats = [];
+    let isHost = false
+    function onJoinBtn() {
+      const name = nameInput.value;
+      const roomId = idInput.value;
+      if (!name) return alert('Name is required');
+      if (!roomId) return alert('Room id is required');
+      peer = new Peer();
+      peer.on('open', () => {
+        let conn = peer.connect(roomId);
+        connections[roomId] = conn;
+        conn.on('open', () => {
+          console.log("Connected to Room: ", roomId)
+          isHost = false
+          broadcast({
+            type: 'info',
+            data: {
+              name: name,
+            }
+          })
+        });
+        conn.on('data', data => {
+          console.log('new data', data)
+          onReceiveData(roomId, data)
+        })
+      });
+
+
+    }
+    function onHostBtn() {
+      const name = nameInput.value;
+      if (!name) return alert('Name is required');
+
+      peer = new Peer();
+      peer.on('open', id => {
+        document.getElementById('room-id').textContent = 'Room Id: ' + id;
+        isHost = true
+        user[id] = {name: name}
+      });
+      peer.on('connection', conn => {
+        console.log('new connection ', conn)
+        connections[conn.peer] = conn;
+        conn.on('open', data => {
+          broadcast({
+            type: 'info',
+            data: {
+              name: name,
+            }
+          })
+          conn.send({
+            type: 'existingUser',
+            data: user
+          })
+          conn.send({
+            type: 'msgs',
+            data: chats
+          })
+        })
+        conn.on('data', data => {
+          console.log('new data from join: ', data)
+          onReceiveData(conn.peer, data)
+
+          broadcast({
+            type: 'relay',
+            data: {
+              ...data,
+              peer: conn.peer
+            }
+          })
+        });
+      })
+    }
+
+    function renderChat() {
+      let content = ''
+      chats.forEach(item => {
+        content += 
+        `
+          <div>
+            <strong>${item.name}</strong>
+            <p>${item.message}</p>
+          </div>
+        `
+      });
+      chatWrapper.innerHTML = content;
+    }
+
+    function onSendBtn() {
+      if (!msgInput.value) return;
+      broadcast({
+        type: 'msg',
+        data: {
+          msg: msgInput.value
+        }
+      });
+      if (isHost && peer.id) {
+        chats.push({
+          name: user[peer.id].name,
+          message: msgInput.value
+        })
+        renderChat();
+      }
+      msgInput.value = '';
+    }
+
+    // Broadcast data to all players
+    function broadcast(data) {
+      for (let id in connections) {
+        connections[id].send(data);
+      }
+    }
+    
+    function onReceiveData(peer, data) {
+      switch (data.type) {
+        case 'info':
+          user[peer] = data.data;
+          break;
+        case 'existingUser':
+          user = {...user, ...data.data}
+          break;
+        case 'msg':
+          chats.push({
+            name: user[peer].name,
+            message: data.data.msg
+          });
+          renderChat();
+          break;
+        case 'msgs':
+          chats.push(...data.data);
+          renderChat();
+          break;
+        case 'relay':
+          onReceiveData(data.data.peer, data.data)
+          break;
+      }
+    }
+
+    joinBtn.addEventListener('click', onJoinBtn)
+    hostBtn.addEventListener('click', onHostBtn)
+    sendBtn.addEventListener('click' ,onSendBtn)
+
+  </script>
+</body>
+</html>
